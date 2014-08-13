@@ -93,10 +93,8 @@ class Enumerator[T, R](loader: T => Seq[Generator[T, R]]) {
 
           for (s <- dgens.toArray.map(_.size).sorted) {
             val threshold = (s-min)*mod;
-            if (threshold == 0) {
-              if (mid >= 0) {
-                modulos(mid) = (modulos(mid)._1, mod-1)
-              }
+            if (threshold == 0 && mid >= 0) {
+              modulos(mid) = (modulos(mid)._1, mod-1)
               mod -= 1
             } else {
               if (mod != 1) {
