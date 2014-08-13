@@ -2,7 +2,7 @@ package bonsai
 
 import scala.collection.mutable.{ArrayBuffer, BitSet, Map => MutableMap, HashMap => MutableHashMap}
 
-class Enumerator[T, R](loader: T => List[Generator[T, R]]) {
+class Enumerator[T, R](loader: T => Seq[Generator[T, R]]) {
   type Gen  = Generator[T, R]
   type CGen = CompiledGenerator[R]
 
@@ -29,7 +29,7 @@ class Enumerator[T, R](loader: T => List[Generator[T, R]]) {
   // Compiled generators (grounds + builders) for each compiled label
   val isGenInit: BitSet = new BitSet()
   val grounds:  ArrayBuffer[ArrayBuffer[R]] = new ArrayBuffer()
-  val builders: ArrayBuffer[List[CGen]]     = new ArrayBuffer()
+  val builders: ArrayBuffer[Seq[CGen]]     = new ArrayBuffer()
 
   def fetchAndCompileGenerators(l: Int): Unit = {
     val t = idsLabels(l)
@@ -47,7 +47,7 @@ class Enumerator[T, R](loader: T => List[Generator[T, R]]) {
     grounds(l)
   }
 
-  def getBuilders(l: Int): List[CGen] = {
+  def getBuilders(l: Int): Seq[CGen] = {
     if (!isGenInit(l)) {
       fetchAndCompileGenerators(l)
     }
