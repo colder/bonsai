@@ -133,9 +133,9 @@ class Enumerator[T, R](loader: T => Seq[Generator[T, R]]) {
      var s = seed
      var bs = 0
      var mi = 0
-     var continue = true;
+     var continue = modulos.nonEmpty;
 
-     do {
+     while(continue && mi < modulos.size) {
        val (limit, newmod) = modulos(mi)
        if (s >= limit) {
         bs  += limit
@@ -145,7 +145,7 @@ class Enumerator[T, R](loader: T => Seq[Generator[T, R]]) {
        } else {
         continue = false;
        }
-     } while (continue && mi < modulos.size)
+     }
 
      val dg = dgs(s % m)
      val sseed = s/m+bs

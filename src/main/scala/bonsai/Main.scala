@@ -5,15 +5,15 @@ object Bonsai {
 
     abstract class Label
     case object IntLabel extends Label
+    case object TupleLabel extends Label
 
     abstract class Expr
     case class Lit(v: Int) extends Expr
     case class Plus(a: Expr, b: Expr) extends Expr
-    case class Plus3(a: Expr, b: Expr, c: Expr) extends Expr
     case class Minus(a: Expr, b: Expr) extends Expr
     case class Times(a: Expr, b: Expr) extends Expr
-    case class UMinus(a: Expr) extends Expr
-    case class UPlus(a: Expr) extends Expr
+
+    case class Tuple(v: Expr) extends Expr
 
     val genLoader: Label => List[Generator[Label, Expr]] = {
       case IntLabel =>
@@ -26,13 +26,17 @@ object Bonsai {
           Generator(List(IntLabel, IntLabel), { case Seq(a,b) => Minus(a, b) }),
           Generator(List(IntLabel, IntLabel), { case Seq(a,b) => Times(a, b) })
         )
+      case TupleLabel =>
+        List(
+          Generator(List(IntLabel), { case Seq(i) => Tuple(i) })
+        )
     }
 
     val ts = System.currentTimeMillis
 
     val enum = new Enumerator(genLoader)
 
-    val it = enum.iterator(IntLabel)
+    val it = enum.iterator(TupleLabel)
 
     var last: Expr = Lit(0);
     it.take(100000).foreach{ e =>
