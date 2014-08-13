@@ -1,6 +1,6 @@
 package bonsai
 
-case class Generator[T,R](kind: T, subTrees: Seq[T], builder: Seq[R] => R) {
+case class Generator[T,R](subTrees: Seq[T], builder: Seq[R] => R) {
   def arity = subTrees.size
 }
 

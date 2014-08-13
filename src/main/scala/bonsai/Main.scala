@@ -18,13 +18,13 @@ object Bonsai {
     val genLoader: Label => List[Generator[Label, Expr]] = {
       case IntLabel =>
         List(
-          Generator(IntLabel, Nil, { _ => Lit(0) }),
-          Generator(IntLabel, Nil, { _ => Lit(1) }),
-          Generator(IntLabel, Nil, { _ => Lit(2) }),
-          Generator(IntLabel, Nil, { _ => Lit(3) }),
-          Generator(IntLabel, List(IntLabel, IntLabel), { case Seq(a,b) => Plus(a, b) }),
-          Generator(IntLabel, List(IntLabel, IntLabel), { case Seq(a,b) => Minus(a, b) }),
-          Generator(IntLabel, List(IntLabel, IntLabel), { case Seq(a,b) => Times(a, b) })
+          Generator(Nil, { _ => Lit(0) }),
+          Generator(Nil, { _ => Lit(1) }),
+          Generator(Nil, { _ => Lit(2) }),
+          Generator(Nil, { _ => Lit(3) }),
+          Generator(List(IntLabel, IntLabel), { case Seq(a,b) => Plus(a, b) }),
+          Generator(List(IntLabel, IntLabel), { case Seq(a,b) => Minus(a, b) }),
+          Generator(List(IntLabel, IntLabel), { case Seq(a,b) => Times(a, b) })
         )
     }
 
