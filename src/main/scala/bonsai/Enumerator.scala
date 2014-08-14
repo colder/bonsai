@@ -6,7 +6,11 @@ class Enumerator[T, R](loader: T => Seq[Generator[T, R]]) {
   type Gen  = Generator[T, R]
   type CGen = CompiledGenerator[R]
 
-  val MAX_LABELS = 256;
+  // Maximum distinct labels
+  val MAX_LABELS = 1024;
+
+  // Maximum consecutive expands without finding new trees
+  val MAX_EXPANDS = 5;
 
   // Compile labels for more efficient processing
   private[this] var nextLabelId = -1;
@@ -115,6 +119,9 @@ class Enumerator[T, R](loader: T => Seq[Generator[T, R]]) {
         res
     }
   }
+  def nTreesOf(l: T, depth: Int): Int = {
+    nTreesOf(labelId(l), depth)
+  }
 
   case class DepthGen(gen: CGen, sub: Array[(Int, Int)], ds: Array[Int], size: Int)
 
@@ -189,6 +196,7 @@ class Enumerator[T, R](loader: T => Seq[Generator[T, R]]) {
           throw new BonsaiException("Can't produce tree #"+seed+" @"+depth+" for "+idsLabels(l))
         }
       } else {
+        //println("Produce tree #"+seed+" @"+depth+" for "+idsLabels(l))
         val (dg, sseed) = depthGenSelect(dl, seed)
         val DepthGen(gen, sub, ds, _) = dg
 
@@ -232,13 +240,17 @@ class Enumerator[T, R](loader: T => Seq[Generator[T, R]]) {
       var seed = 0
       var nTrees = nTreesOf(lab, depth)
 
-      def hasNext = true
-      def next = {
-        if (seed == nTrees) {
+      def hasNext = {
+        var expanded = 0
+        while (seed == nTrees && expanded < MAX_EXPANDS) {
           seed = 0
           depth += 1
           nTrees = nTreesOf(lab, depth)
+          expanded += 1
         }
+        seed != nTrees
+      }
+      def next = {
         val r = getTree(lab, depth, seed)
         seed += 1
         absSeed += 1
