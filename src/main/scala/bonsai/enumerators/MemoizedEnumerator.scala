@@ -17,6 +17,8 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
   private[this] var nextLabelId = -1;
   private[this] var labelsIds = Map[T, Int]()
   private[this] var idsLabels = Map[Int, T]()
+  val grounds:  ArrayBuffer[ArrayBuffer[R]] = new ArrayBuffer()
+  val builders: ArrayBuffer[Seq[CGen]]     = new ArrayBuffer()
 
   def labelId(l: T): Int = {
     labelsIds.getOrElse(l, {
@@ -24,6 +26,10 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
       if (nextLabelId >= MAX_LABELS) {
         throw new BonsaiException("Exceeded the number of labels available")
       }
+
+      grounds += new ArrayBuffer[R]()
+      builders += Nil
+
       labelsIds  += l -> nextLabelId
       idsLabels += nextLabelId -> l
 
@@ -33,16 +39,16 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
 
   // Compiled generators (grounds + builders) for each compiled label
   val isGenInit: BitSet = new BitSet()
-  val grounds:  ArrayBuffer[ArrayBuffer[R]] = new ArrayBuffer()
-  val builders: ArrayBuffer[Seq[CGen]]     = new ArrayBuffer()
 
   def fetchAndCompileGenerators(l: Int): Unit = {
     val t = idsLabels(l)
     val (gs, bs) = grammar(t).partition(_.arity == 0)
 
+    //println("Fetching grammar for "+t)
+
     isGenInit += l
-    grounds  += new ArrayBuffer[R]() ++ gs.map(_.builder(Seq()))
-    builders += bs.map(g => CompiledGenerator(g.subTrees.map(labelId), g.builder))
+    grounds(l)  = new ArrayBuffer[R]() ++ gs.map(_.builder(Seq()))
+    builders(l) = bs.map(g => CompiledGenerator(g.subTrees.map(labelId), g.builder))
   }
 
   def getGrounds(l: Int): ArrayBuffer[R] = {
@@ -60,7 +66,7 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
   }
 
   def depthLabel(l: Int, depth: Int): Int = {
-    depth*256+l
+    depth*MAX_LABELS + l
   }
 
   val expectedSizes: MutableMap[Int, Int] = new MutableHashMap[Int, Int]()
@@ -176,15 +182,19 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
     val dl = depthLabel(l, depth)
     val available = treesSizes(dl)
     if (available > seed) {
+      //println("Fetching tree #"+seed+"("+available+") @"+depth+"("+dl+") for "+idsLabels(l))
       trees(dl)(seed)
     } else {
+      if (available == 0) {
+        //println("Initializing at @"+depth+" for "+idsLabels(l))
+        trees(dl) = new ArrayBuffer[R]();
+      }
+
       if (seed > 0 && available < seed) {
+        //println("Backtracking ?!?")
         for (i <- available until seed) {
           getTree(l, depth, i)
         }
-      }
-      if (available == 0) {
-        trees(dl) = new ArrayBuffer[R]();
       }
 
       if (depth == 0) {
@@ -197,13 +207,14 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
           throw new BonsaiException("Can't produce tree #"+seed+" @"+depth+" for "+idsLabels(l))
         }
       } else {
-        //println("Produce tree #"+seed+" @"+depth+" for "+idsLabels(l))
+        //println("Producing tree #"+seed+" @"+depth+" for "+idsLabels(l))
         val (dg, sseed) = depthGenSelect(dl, seed)
         val DepthGen(gen, sub, ds, _) = dg
 
         val res = genExpr(gen, sub, ds, seed)
         treesSizes(dl) += 1
         trees(dl) += res
+        //assert(trees(dl).size == treesSizes(dl))
 
         res
       }
