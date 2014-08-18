@@ -7,6 +7,10 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
   type Gen  = Generator[T, R]
   type CGen = CompiledGenerator[R]
 
+  //var tsNTrees   = ArrayBuffer[Long]()
+  //var tsGetTrees = ArrayBuffer[Long]()
+  //var tsProbe    = ArrayBuffer[Long]()
+
   // Maximum distinct labels
   val MAX_LABELS = 1024;
 
@@ -70,6 +74,7 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
   }
 
   val expectedSizes: MutableMap[Int, Int] = new MutableHashMap[Int, Int]()
+  //val genSizesCache: MutableMap[(BitSet, Int), Int] = new MutableHashMap[Int, Int]()
 
   def nTreesOf(l: Int, depth: Int): Int = {
     val dl = depthLabel(l, depth)
@@ -79,20 +84,25 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
         val res = if (depth == 0) {
           getGrounds(l).size
         } else {
+          //val ts = System.currentTimeMillis
           val sdepth = depth-1
 
           var dgens = new ArrayBuffer[DepthGen]()
 
-          val res = getBuilders(l).map { g =>
-            sumTo(sdepth, g.arity).map { sizes =>
+          var overallSum = 0;
+
+          //val ts3 = System.currentTimeMillis
+          getBuilders(l).foreach { g =>
+            sumTo(sdepth, g.arity).foreach { sizes =>
               val subs = (g.subTrees zip sizes).toArray
               val subSizes = subs.map { case (t, d) => nTreesOf(t, d) }
               val genSize = subSizes.product
 
               dgens += DepthGen(g, subs, subSizes, genSize)
-              genSize
-            }.sum
-          }.sum
+              overallSum += genSize
+            }
+          }
+          //tsProbe += System.currentTimeMillis-ts3
 
           val orderedDgens = dgens.toArray.sortBy(-_.size)
 
@@ -119,7 +129,9 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
 
           depthsGens += dl -> ((orderedDgens, modulos.toArray))
 
-          res
+          //tsNTrees += System.currentTimeMillis-ts
+
+          overallSum
         }
 
         expectedSizes += dl -> res
@@ -185,6 +197,7 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
       //println("Fetching tree #"+seed+"("+available+") @"+depth+"("+dl+") for "+idsLabels(l))
       trees(dl)(seed)
     } else {
+      //val ts = System.currentTimeMillis
       if (available == 0) {
         //println("Initializing at @"+depth+" for "+idsLabels(l))
         trees(dl) = new ArrayBuffer[R]();
@@ -202,6 +215,7 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
         trees += dl -> gs
         treesSizes(dl) = gs.size
         if (seed < gs.size) {
+          //tsGetTrees += System.currentTimeMillis-ts
           gs(seed)
         } else {
           throw new BonsaiException("Can't produce tree #"+seed+" @"+depth+" for "+idsLabels(l))
@@ -216,8 +230,10 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
         trees(dl) += res
         //assert(trees(dl).size == treesSizes(dl))
 
+        //tsGetTrees += System.currentTimeMillis-ts
         res
       }
+
     }
   }
 
@@ -242,6 +258,24 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
   def getTree(l: T, absSeed: Int): R = {
     getTree(labelId(l), absSeed)
   }
+
+  //def printStats = {
+  //  def printStat(name: String, tss: ArrayBuffer[Long]) = {
+  //    val n = tss.size
+  //    val (sum, avg, min, max) = if (n == 0) {
+  //      (0l, 0d,0l,0l)
+  //    } else {
+  //      (tss.sum, tss.sum*1d/n, tss.min, tss.max)
+  //    }
+
+  //    println(f"$name%-20s $sum%-4d (n: $n%-3d, min: $min%4d, avg: $avg%,2f, max: $max%4d)")
+
+  //  }
+
+  //  printStat("getTree",  tsGetTrees)
+  //  printStat("nTreesOf", tsNTrees)
+  //  printStat("probe",    tsProbe)
+  //}
 
   def iterator(t: T): Iterator[R] = {
     val lab = labelId(t)
@@ -271,11 +305,15 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
     }
   }
 
-  def sumTo(sum: Int, arity: Int): Seq[Seq[Int]] = {
-    if (arity == 1) {
+  val sumTos: MutableMap[Int, Seq[Seq[Int]]] = new MutableHashMap()
+
+  def sumTo(sum: Int, arity: Int): Seq[Seq[Int]] = sumTos.getOrElse(sum*100+arity, {
+    val res = if (arity == 1) {
       Seq(Seq(sum))
     } else {
       (0 to sum).flatMap{n => sumTo(sum-n, arity-1).map( r => n +: r) }
     }
-  }
+    sumTos += (sum*100+arity -> res)
+    res
+  })
 }
