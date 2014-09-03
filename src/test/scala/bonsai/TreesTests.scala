@@ -49,11 +49,12 @@ class TreesTests extends FunSuite with TestHelpers {
 
     val ts = System.currentTimeMillis
 
-    val enum = new StreamEnumerator(loader)    
+    val enum = new StreamEnumerator(loader)
     enum.iterator(IntLabel).take(100000).foreach { e =>
 
     }
 
     info("Took "+(System.currentTimeMillis-ts)+"ms")
   }
+
 }

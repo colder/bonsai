@@ -164,7 +164,7 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
      while(continue && mi < modulos.size) {
        val (limit, newmod) = modulos(mi)
        if (s >= limit) {
-        bs  += limit
+        bs  += limit/m
         m    = newmod
         s   -= limit
         mi  += 1
@@ -225,7 +225,7 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
         val (dg, sseed) = depthGenSelect(dl, seed)
         val DepthGen(gen, sub, ds, _) = dg
 
-        val res = genExpr(gen, sub, ds, seed)
+        val res = genExpr(gen, sub, ds, sseed)
         treesSizes(dl) += 1
         trees(dl) += res
         //assert(trees(dl).size == treesSizes(dl))
@@ -292,6 +292,7 @@ class MemoizedEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
           seed = 0
           depth += 1
           nTrees = nTreesOf(lab, depth)
+          //println("Expanding to depth "+depth+": "+nTrees+" trees");
           expanded += 1
         }
         seed != nTrees

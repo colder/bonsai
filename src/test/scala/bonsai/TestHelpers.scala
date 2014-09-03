@@ -41,4 +41,37 @@ trait TestHelpers {
         )
     }
   }
+
+  object ABGenerators {
+    abstract class Label
+    case object  A extends Label
+    case object  B extends Label
+
+    abstract class Tree
+    case object A1 extends Tree
+    case object A2 extends Tree
+    case object A3 extends Tree
+    case object B1 extends Tree
+    case object B2 extends Tree
+    case class BOp1(a: Tree, b: Tree) extends Tree
+    case class BOp2(a: Tree) extends Tree
+    case class BOp3(b: Tree) extends Tree
+
+    val loader: Label => List[Generator[Label, Tree]] = {
+      case A =>
+        List(
+          Generator(Nil, { _ => A1 }),
+          Generator(Nil, { _ => A2 }),
+          Generator(Nil, { _ => A3 })
+        )
+      case B =>
+        List(
+          Generator(Nil, { _ => B1 }),
+          Generator(Nil, { _ => B2 }),
+          Generator(List(A, B), { case Seq(a,b) => BOp1(a, b) }),
+          Generator(List(A),    { case Seq(a) => BOp2(a) }),
+          Generator(List(B),    { case Seq(b) => BOp3(b) })
+        )
+    }
+  }
 }
