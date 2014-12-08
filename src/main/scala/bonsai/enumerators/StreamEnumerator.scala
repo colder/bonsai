@@ -3,27 +3,7 @@ package enumerators
 
 import scala.collection.mutable.{ArrayBuffer, BitSet, Map => MutableMap, HashMap => MutableHashMap}
 
-class StreamEnumerator[T, R](grammar: T => Seq[Generator[T, R]]) {
-  type Gen  = Generator[T, R]
-
-  var generators = Map[T, Seq[Gen]]()
-  var builders   = Map[T, Seq[Gen]]()
-  var grounds    = Map[T, Seq[R]]()
-
-  def getGenerators(l: T): Seq[Gen] = generators.getOrElse(l, {
-    val gens = grammar(l)
-    generators += l -> gens
-    gens
-  })
-
-
-  def getGrounds(l: T): Seq[R] = grounds.getOrElse(l, {
-    getGenerators(l).filter(_.subTrees.isEmpty).map(_.builder(Nil))
-  })
-
-  def getBuilders(l: T): Seq[Gen] = builders.getOrElse(l, {
-    getGenerators(l).filterNot(_.subTrees.isEmpty)
-  })
+class StreamEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends IterativeEnumerator[T, R] with RandomAccessEnumerator[T, R] with Enumerator[T, R] {
 
   var streams = Map[(T, Int), Stream[R]]()
 
