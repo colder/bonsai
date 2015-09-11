@@ -29,7 +29,7 @@ class BottomUpEnumerator[T, R, V](
       def getValues(t: T): Vector[Vector[V]] = {
         values.getOrElse(t, {
           // initialize with ground expressions
-          val res = getGenerators(t).filter(_.subTrees.isEmpty).flatMap { g =>
+          val res = getProductions(t).filter(_.subTrees.isEmpty).flatMap { g =>
             evaluator(Vector(), g) match {
               case Some(out) =>
                 if (!(witness contains out)) {
@@ -58,7 +58,7 @@ class BottomUpEnumerator[T, R, V](
         depth += 1
 
         for (t <- values.keys) {
-          getBuilders(t).foreach { gen => 
+          getNonTerminals(t).foreach { gen =>
             val subValues = gen.subTrees.toVector.map(getValues)
             // cartesian product of subValues
             val subPairs = cartesian(subValues)

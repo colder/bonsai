@@ -16,8 +16,8 @@ class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends I
   private[this] var nextLabelId = -1;
   private[this] var labelsIds = Map[T, Int]()
   private[this] var idsLabels = Map[Int, T]()
-  val cgrounds:  ArrayBuffer[ArrayBuffer[R]] = new ArrayBuffer()
-  val cbuilders: ArrayBuffer[Seq[CGen]]     = new ArrayBuffer()
+  val cTerminals:  ArrayBuffer[ArrayBuffer[R]] = new ArrayBuffer()
+  val cNonTerminals: ArrayBuffer[Seq[CGen]]    = new ArrayBuffer()
 
   def labelId(l: T): Int = {
     labelsIds.getOrElse(l, {
@@ -26,8 +26,8 @@ class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends I
         throw new BonsaiException("Exceeded the number of labels available")
       }
 
-      cgrounds += new ArrayBuffer[R]()
-      cbuilders += Nil
+      cTerminals += new ArrayBuffer[R]()
+      cNonTerminals += Nil
 
       labelsIds  += l -> nextLabelId
       idsLabels += nextLabelId -> l
@@ -36,47 +36,54 @@ class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends I
     })
   }
 
-  // Compiled generators (grounds + builders) for each compiled label
+  // Compiled generators (terminals + nonTerminals) for each compiled label
   val isGenInit: BitSet = new BitSet()
 
   def fetchAndCompileGenerators(l: Int): Unit = {
     val t = idsLabels(l)
-    val (gs, bs) = grammar(t).partition(_.arity == 0)
 
     //println("Fetching grammar for "+t)
 
     isGenInit += l
-    cgrounds(l)  = new ArrayBuffer[R]() ++ gs.map(_.builder(Seq()))
-    cbuilders(l) = bs.map(g => CompiledGenerator(g.subTrees.map(labelId), g.builder))
+    cTerminals(l)  = new ArrayBuffer[R]() ++ getTerminals(t)
+    cNonTerminals(l) = for (g <- getNonTerminals(t)) yield {
+      CompiledGenerator(g.subTrees.map(labelId), g.builder, g.weight)
+    }
   }
 
-  def getGrounds(l: Int): ArrayBuffer[R] = {
+  def getCTerminals(l: Int): ArrayBuffer[R] = {
     if (!isGenInit(l)) {
       fetchAndCompileGenerators(l)
     }
-    cgrounds(l)
+    cTerminals(l)
   }
 
-  def getCBuilders(l: Int): Seq[CGen] = {
+  def getCNonTerminals(l: Int): Seq[CGen] = {
     if (!isGenInit(l)) {
       fetchAndCompileGenerators(l)
     }
-    cbuilders(l)
+    cNonTerminals(l)
   }
 
   def depthLabel(l: Int, depth: Int): Int = {
     depth*MAX_LABELS + l
   }
 
-  val expectedSizes: MutableMap[Int, Int] = new MutableHashMap[Int, Int]()
+  val expectedSizes = new MutableHashMap[DepthLabel, Int]()
 
-  def nTreesOf(l: Int, depth: Int): Int = {
-    val dl = depthLabel(l, depth)
+  val treesSizes    = new MutableHashMap[DepthLabel, Int]().withDefaultValue(0)
+  val trees         = new MutableHashMap[DepthLabel, ArrayBuffer[R]]()
+  val depthsGens    = new MutableHashMap[DepthLabel, (Array[DepthGen], Array[(Int, Int)])]()
+
+  def nTreesOf(dl: DepthLabel): Int = {
     expectedSizes.get(dl) match {
       case Some(es) => es
       case None =>
+        val depth = dl.depth
+        val l = dl.label
+
         val res = if (depth == 0) {
-          getGrounds(l).size
+          getCTerminals(l).size
         } else {
           val sdepth = depth-1
 
@@ -84,10 +91,10 @@ class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends I
 
           var overallSum = 0;
 
-          getCBuilders(l).foreach { g =>
+          getCNonTerminals(l).foreach { g =>
             sumTo(sdepth, g.arity).foreach { sizes =>
-              val subs = (g.subTrees zip sizes).toArray
-              val subSizes = subs.map { case (t, d) => nTreesOf(t, d) }
+              val subs = (g.subTrees zip sizes).toArray.map(dl => DepthLabel(dl._1, dl._2))
+              val subSizes = subs.map { nTreesOf }
               val genSize = subSizes.product
 
               dgens += DepthGen(g, subs, subSizes, genSize)
@@ -129,16 +136,32 @@ class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends I
     }
   }
   def nTreesOf(l: T, depth: Int): Int = {
-    nTreesOf(labelId(l), depth)
+    nTreesOf(DepthLabel(labelId(l), depth))
   }
 
-  case class DepthGen(gen: CGen, sub: Array[(Int, Int)], ds: Array[Int], size: Int)
+  case class DepthLabel(label: Int, depth: Int) {
+    override def hashCode: Int = {
+      depth*MAX_LABELS + label
+    }
+  }
 
-  val treesSizes: MutableMap[Int, Int]               = new MutableHashMap[Int, Int]().withDefaultValue(0)
-  val trees: MutableMap[Int, ArrayBuffer[R]]         = new MutableHashMap[Int, ArrayBuffer[R]]()
-  val depthsGens: MutableMap[Int, (Array[DepthGen], Array[(Int, Int)])] = new MutableHashMap[Int, (Array[DepthGen], Array[(Int, Int)])]()
+  /**
+   * gen: The compiled generator used by this non-terminal
+   *
+   * sub: an array of subtree depth-labels
+   *
+   * ds: the size of each depth-label
+   *
+   * size: the size of this generator
+   */
 
-  def depthGenSelect(dl: Int, seed: Int): (DepthGen, Int) = {
+  case class DepthGen(gen: CGen, sub: Array[DepthLabel], ds: Array[Int], size: Int) {
+    override def toString = {
+      "["+gen.subTrees.map(idsLabels).mkString(", ")+", "+sub.mkString(".")+"]"
+    }
+  }
+
+  def depthGenSelect(dl: DepthLabel, seed: Int): (DepthGen, Int) = {
     /**
      * We know dgs is ordered DESC in size of generators,
      * Plan is to, from the seed, pick DG by a series of / and %
@@ -168,7 +191,7 @@ class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends I
      (dg, sseed)
   }
 
-  def genExpr(gen: CGen, sub: Array[(Int, Int)], ds: Array[Int], seed: Int): R = {
+  def genExpr(gen: CGen, sub: Array[DepthLabel], ds: Array[Int], seed: Int): R = {
     var res = new ArrayBuffer[Int]()
     var s = seed
     for (d <- ds) {
@@ -176,12 +199,12 @@ class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends I
       s = s / d
     }
 
-    val sexprs = (sub zip res).map { case ((l, d), s) => getTree(l, d, s) }
+    val sexprs = (sub zip res).map { case (dl, s) => getTree(dl, s) }
     gen.builder(sexprs)
   }
 
-  def getTree(l: Int, depth: Int, seed: Int): R = {
-    val dl = depthLabel(l, depth)
+  def getTree(dl: DepthLabel, seed: Int): R = {
+
     val available = treesSizes(dl)
     if (available > seed) {
       //println("Fetching tree #"+seed+"("+available+") @"+depth+"("+dl+") for "+idsLabels(l))
@@ -195,25 +218,25 @@ class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends I
       if (seed > 0 && available < seed) {
         //println("Backtracking ?!?")
         for (i <- available until seed) {
-          getTree(l, depth, i)
+          getTree(dl, i)
         }
       }
 
-      if (depth == 0) {
-        val gs = getGrounds(l)
+      if (dl.depth == 0) {
+        val gs = getCTerminals(dl.label)
         trees += dl -> gs
         treesSizes(dl) = gs.size
         if (seed < gs.size) {
           gs(seed)
         } else {
-          throw new BonsaiException("Can't produce tree #"+seed+" @"+depth+" for "+idsLabels(l))
+          throw new BonsaiException("Can't produce tree #"+seed+" @"+dl.depth+" for "+idsLabels(dl.label))
         }
       } else {
-        //println("Producing tree #"+seed+" @"+depth+" for "+idsLabels(l))
-        val (dg, sseed) = depthGenSelect(dl, seed)
-        val DepthGen(gen, sub, ds, _) = dg
+        //println("Producing tree #"+seed+" @"+dl.depth+" for "+idsLabels(dl.label))
+        val (DepthGen(gen, sub, ds, _), sseed) = depthGenSelect(dl, seed)
 
         val res = genExpr(gen, sub, ds, sseed)
+        //println("=> "+res)
         treesSizes(dl) += 1
         trees(dl) += res
         //assert(trees(dl).size == treesSizes(dl))
@@ -230,7 +253,7 @@ class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends I
 
     var continue = true
     do {
-      var n = nTreesOf(l, d)
+      var n = nTreesOf(DepthLabel(l, d))
       if (seed >= n) {
         seed -= n
         d += 1
@@ -239,7 +262,7 @@ class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends I
       }
     } while(continue);
 
-    getTree(l, d, seed)
+    getTree(DepthLabel(l, d), seed)
   }
 
   def getTree(l: T, absSeed: Int): R = {
@@ -253,21 +276,22 @@ class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends I
       var depth = 0
       var absSeed = 0
       var seed = 0
-      var nTrees = nTreesOf(lab, depth)
+      var dl = DepthLabel(lab, depth)
+      var nTrees = nTreesOf(dl)
 
       def hasNext = {
         var expanded = 0
         while (seed == nTrees && expanded < MAX_EXPANDS) {
           seed = 0
           depth += 1
-          nTrees = nTreesOf(lab, depth)
-          //println("Expanding to depth "+depth+": "+nTrees+" trees");
+          dl = DepthLabel(lab, depth)
+          nTrees = nTreesOf(dl)
           expanded += 1
         }
         seed != nTrees
       }
       def next = {
-        val r = getTree(lab, depth, seed)
+        val r = getTree(dl, seed)
         seed += 1
         absSeed += 1
         r

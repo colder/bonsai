@@ -1,7 +1,7 @@
 name := "bonsai"
 
-version := "1.0"
+version := "1.1"
 
-scalaVersion := "2.11.2"
+scalaVersion := "2.11.7"
 
-libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.1" % "test"
+libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.4" % "test"

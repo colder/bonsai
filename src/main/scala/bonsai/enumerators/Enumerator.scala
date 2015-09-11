@@ -15,22 +15,22 @@ trait Enumerator[T, R] {
 
   type Gen  = Generator[T, R]
 
-  var generators = Map[T, Seq[Gen]]()
-  var builders   = Map[T, Seq[Gen]]()
-  var grounds    = Map[T, Seq[R]]()
+  var productions  = Map[T, Seq[Gen]]()
+  var nonTerminals = Map[T, Seq[Gen]]()
+  var terminals    = Map[T, Seq[R]]()
 
-  def getGenerators(l: T): Seq[Gen] = generators.getOrElse(l, {
+  def getProductions(l: T): Seq[Gen] = productions.getOrElse(l, {
     val gens = grammar(l)
-    generators += l -> gens
+    productions += l -> gens
     gens
   })
 
 
-  def getGrounds(l: T): Seq[R] = grounds.getOrElse(l, {
-    getGenerators(l).filter(_.subTrees.isEmpty).map(_.builder(Nil))
+  def getTerminals(l: T): Seq[R] = terminals.getOrElse(l, {
+    getProductions(l).filter(_.isTerminal).sortBy(_.weight).map(_.builder(Nil))
   })
 
-  def getBuilders(l: T): Seq[Gen] = builders.getOrElse(l, {
-    getGenerators(l).filterNot(_.subTrees.isEmpty)
+  def getNonTerminals(l: T): Seq[Gen] = nonTerminals.getOrElse(l, {
+    getProductions(l).filter(_.isNonTerminal).sortBy(_.weight)
   })
 }

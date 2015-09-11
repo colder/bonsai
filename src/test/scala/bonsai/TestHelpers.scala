@@ -1,6 +1,17 @@
 package bonsai
 
+import enumerators._
+
 trait TestHelpers {
+
+  def enumerators[T, R](loader: T => List[Generator[T, R]]): List[Enumerator[T, R] with IterativeEnumerator[T, R]] = {
+    List(
+      new MemoizedEnumerator(loader),
+      new StreamEnumerator(loader)
+    )
+  }
+
+
   object BasicIntGenerators {
     abstract class Label
     case object IntLabel extends Label
@@ -71,6 +82,32 @@ trait TestHelpers {
           Generator(List(A, B), { case Seq(a,b) => BOp1(a, b) }),
           Generator(List(A),    { case Seq(a) => BOp2(a) }),
           Generator(List(B),    { case Seq(b) => BOp3(b) })
+        )
+    }
+  }
+
+  object WeightedGrammars {
+    abstract class Label
+    case object IntLabel extends Label
+
+    abstract class Expr
+    case class Lit(v: Int) extends Expr
+    case class Plus(a: Expr, b: Expr) extends Expr
+    case class Minus(a: Expr, b: Expr) extends Expr
+    case class Times(a: Expr, b: Expr) extends Expr
+    case class Div(a: Expr, b: Expr) extends Expr
+
+    val loader: Label => List[Generator[Label, Expr]] = {
+      case IntLabel =>
+        List(
+          Generator(Nil, { _ => Lit(0) }, Weight(0)),
+          Generator(Nil, { _ => Lit(1) }, Weight(1)),
+          Generator(Nil, { _ => Lit(2) }, Weight(2)),
+          Generator(Nil, { _ => Lit(3) }, Weight(3)),
+          Generator(List(IntLabel, IntLabel), { case Seq(a,b) => Div(a, b) }, Weight(0)),
+          Generator(List(IntLabel, IntLabel), { case Seq(a,b) => Plus(a, b) }, Weight(2)),
+          Generator(List(IntLabel, IntLabel), { case Seq(a,b) => Minus(a, b) }, Weight(1)),
+          Generator(List(IntLabel, IntLabel), { case Seq(a,b) => Times(a, b) }, Weight(1))
         )
     }
   }
