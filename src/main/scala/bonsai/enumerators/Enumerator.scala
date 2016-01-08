@@ -27,10 +27,10 @@ trait Enumerator[T, R] {
 
 
   def getTerminals(l: T): Seq[R] = terminals.getOrElse(l, {
-    getProductions(l).filter(_.isTerminal).sortBy(_.weight).map(_.builder(Nil))
+    getProductions(l).filter(_.isTerminal).map(_.builder(Nil))
   })
 
   def getNonTerminals(l: T): Seq[Gen] = nonTerminals.getOrElse(l, {
-    getProductions(l).filter(_.isNonTerminal).sortBy(_.weight)
+    getProductions(l).filter(_.isNonTerminal)
   })
 }

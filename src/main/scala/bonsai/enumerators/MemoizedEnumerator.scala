@@ -4,7 +4,8 @@ package enumerators
 import scala.collection.mutable.{ArrayBuffer, BitSet, Map => MutableMap, HashMap => MutableHashMap}
 
 class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends IterativeEnumerator[T, R] with RandomAccessEnumerator[T, R] with Enumerator[T, R] {
-  type CGen = CompiledGenerator[R]
+
+  type CGen = Generator[Int, R]
 
   // Maximum distinct labels
   val MAX_LABELS = 1024;
@@ -47,7 +48,7 @@ class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends I
     isGenInit += l
     cTerminals(l)  = new ArrayBuffer[R]() ++ getTerminals(t)
     cNonTerminals(l) = for (g <- getNonTerminals(t)) yield {
-      CompiledGenerator(g.subTrees.map(labelId), g.builder, g.weight)
+      new Generator(g.subTrees.map(labelId), g.builder)
     }
   }
 

@@ -48,7 +48,7 @@ class BottomUpEnumerator[T, R, V](
           values += t -> res
 
           res
-        })    
+        })
       }
 
       def expand(): Boolean = {
