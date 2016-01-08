@@ -3,7 +3,7 @@ package enumerators
 
 import scala.collection.mutable.{ArrayBuffer, BitSet, Map => MutableMap, HashMap => MutableHashMap}
 
-class MemoizedEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends IterativeEnumerator[T, R] with RandomAccessEnumerator[T, R] with Enumerator[T, R] {
+class MemoizedEnumerator[T, R, G <: Generator[T, R]](val grammar: T => Seq[G]) extends IterativeEnumerator[T, R] with RandomAccessEnumerator[T, R] with Enumerator[T, R, G] {
 
   type CGen = Generator[Int, R]
 

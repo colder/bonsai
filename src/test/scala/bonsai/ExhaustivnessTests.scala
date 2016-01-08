@@ -8,7 +8,7 @@ class ExhaustivnessTests extends FunSuite with TestHelpers {
     import ABGenerators._
 
     var seen = Set[Tree]();
-    val enum = new MemoizedEnumerator(loader)
+    val enum = memoized(loader)
 
     enum.iterator(B).take(1000).foreach { e =>
       if (seen contains e) {
@@ -22,7 +22,7 @@ class ExhaustivnessTests extends FunSuite with TestHelpers {
     import ABGenerators._
 
     var seen = Set[Tree]();
-    val enum = new MemoizedEnumerator(loader)
+    val enum = new MemoizedEnumerator[Label, Tree, Generator[Label, Tree]](loader)
 
     assert(enum.iterator(B).take(1000).find(_ == BOp1(A3, B2)).isDefined)
   }

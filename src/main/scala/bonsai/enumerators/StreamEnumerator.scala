@@ -1,7 +1,7 @@
 package bonsai
 package enumerators
 
-class StreamEnumerator[T, R](val grammar: T => Seq[Generator[T, R]]) extends IterativeEnumerator[T, R] with RandomAccessEnumerator[T, R] with Enumerator[T, R] {
+class StreamEnumerator[T, R, G <: Generator[T, R]](val grammar: T => Seq[G]) extends IterativeEnumerator[T, R] with RandomAccessEnumerator[T, R] with Enumerator[T, R, G] {
 
   import helpers.StreamHelpers._
 

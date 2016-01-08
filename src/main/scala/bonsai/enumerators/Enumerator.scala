@@ -9,17 +9,15 @@ trait RandomAccessEnumerator[T, R] {
   def getTree(t: T, seed: Int): R
 }
 
-trait Enumerator[T, R] {
+trait Enumerator[T, R, G <: Generator[T, R]] {
 
-  val grammar: T => Seq[Gen]
+  val grammar: T => Seq[G]
 
-  type Gen  = Generator[T, R]
-
-  var productions  = Map[T, Seq[Gen]]()
-  var nonTerminals = Map[T, Seq[Gen]]()
+  var productions  = Map[T, Seq[G]]()
+  var nonTerminals = Map[T, Seq[G]]()
   var terminals    = Map[T, Seq[R]]()
 
-  def getProductions(l: T): Seq[Gen] = productions.getOrElse(l, {
+  def getProductions(l: T): Seq[G] = productions.getOrElse(l, {
     val gens = grammar(l)
     productions += l -> gens
     gens
@@ -30,7 +28,7 @@ trait Enumerator[T, R] {
     getProductions(l).filter(_.isTerminal).map(_.builder(Nil))
   })
 
-  def getNonTerminals(l: T): Seq[Gen] = nonTerminals.getOrElse(l, {
+  def getNonTerminals(l: T): Seq[G] = nonTerminals.getOrElse(l, {
     getProductions(l).filter(_.isNonTerminal)
   })
 }

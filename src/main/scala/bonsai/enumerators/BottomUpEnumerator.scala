@@ -3,11 +3,11 @@ package enumerators
 
 import scala.collection.mutable.{Queue}
 
-class BottomUpEnumerator[T, R, V](
-  val grammar: T => Seq[Generator[T, R]],
+class BottomUpEnumerator[T, R, V, G <: Generator[T, R]](
+  val grammar: T => Seq[G],
   tests: Seq[(Seq[V], V)],
-  evaluator: (Vector[Vector[V]], Generator[T, R]) => Option[Vector[V]],
-  maxDepth: Int = 10) extends IterativeEnumerator[T, R] with Enumerator[T, R] {
+  evaluator: (Vector[Vector[V]], G) => Option[Vector[V]],
+  maxDepth: Int = 10) extends IterativeEnumerator[T, R] with Enumerator[T, R, G] {
 
   assert(tests.nonEmpty, "No tests provided")
   assert(tests.map(_._1.size).distinct.size == 1, "Tests with non-uniform input size")

@@ -8,11 +8,19 @@ trait TestHelpers {
     def apply[T, R](st: Seq[T], g: Seq[R] => R) = new Generator(st, g)
   }
 
-  def enumerators[T, R](loader: T => List[Generator[T, R]]): List[Enumerator[T, R] with IterativeEnumerator[T, R]] = {
+  def enumerators[T, R](loader: T => List[Generator[T, R]]): List[Enumerator[T, R, Generator[T, R]] with IterativeEnumerator[T, R]] = {
     List(
-      new MemoizedEnumerator(loader),
-      new StreamEnumerator(loader)
+      memoized(loader),
+      stream(loader)
     )
+  }
+
+  def memoized[T, R](loader: T => List[Generator[T, R]]) = {
+    new MemoizedEnumerator[T, R, Generator[T, R]](loader)
+  }
+
+  def stream[T, R](loader: T => List[Generator[T, R]]) = {
+    new StreamEnumerator[T, R, Generator[T, R]](loader)
   }
 
 
